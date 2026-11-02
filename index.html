@@ -94,7 +94,7 @@ ul.src a{color:var(--teal)}
 </header>
 
 <nav class="chips" aria-label="章节">
-  <a href="#core">核心公式</a><a href="#l1">① 压缩权重</a><a href="#l2">② KV 与注意力</a><a href="#l3">③ 并行解码</a><a href="#l4">④ 分层与卸载</a><a href="#l5">⑤ 模型结构</a><a href="#people">关键团队</a><a href="#biz">商业时间线</a><a href="#now">2026 前沿</a><a href="#alpaca">Alpaca 的位置</a>
+  <a href="#core">核心公式</a><a href="#l1">① 压缩权重</a><a href="#l2">② KV 与注意力</a><a href="#l3">③ 并行解码</a><a href="#l4">④ 分层与卸载</a><a href="#l5">⑤ 模型结构</a><a href="#people">关键团队</a><a href="#biz">商业时间线</a><a href="#now">2026 前沿</a><a href="#alpaca">Alpaca 的位置</a><a href="#wan">Zishen Wan</a>
 </nav>
 
 <section id="core">
@@ -283,6 +283,29 @@ ul.src a{color:var(--teal)}
   <div class="callout"><h3>为什么是这个时间点</h3><p>2025 年起前沿开源模型几乎都是 MoE：激活少、总量大，瓶颈转到容量。现成的消费级机器在 128–512GB 这一档又贵又不够。</p></div>
 </section>
 
+<section id="wan">
+  <span class="eyebrow">哥大 CS · 2026 入职</span>
+  <h2>Zishen Wan：给机器人和具身 AI 做计算系统</h2>
+  <p class="lede">计算机体系结构和芯片方向。Georgia Tech 博士（导师 Arijit Raychowdhury、Tushar Krishna），Harvard 博士后（Vijay Janapa Reddi）。他不在大模型量化这条线上，而是在"给机器人、具身 AI 设计硬件和系统"这一侧，和本地推理共用同一套带宽、内存、能效的思路。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>方向</th><th>代表工作</th><th>和本页脉络的关系</th></tr></thead>
+    <tbody>
+      <tr><td class="w">具身 AI 的系统分析</td><td>Generative AI in Embodied Systems（ISPASS 2025，一作）；Roofline Model for UAVs（ISPASS 2022）；RobotPerf 基准（ICRA 2024）</td><td>把 Roofline 和瓶颈分析用在机器人上，和本页开头的带宽公式是同一种方法</td></tr>
+      <tr class="key"><td class="w">机器人加速器与软硬件协同<span class="tag key">主线</span></td><td>ORIANNA（ASPLOS 2024）、ReCA 多机协作具身系统（ASPLOS 2025）、OctoCache 三维建图缓存（ASPLOS 2025）、RTGS 实时 3DGS SLAM（MICRO 2025）、Arborist 运动规划（MICRO 2026）、无人机专用 SoC 自动设计（MICRO 2022）</td><td>机器人上的"本地推理"：在功耗受限的设备上实时跑感知、建图、规划</td></tr>
+      <tr><td class="w">可靠性与容错</td><td>CREATE 具身 AI 跨层容错（ASPLOS 2026）、MulBERRY（ASPLOS 2024）、BERRY（DAC 2023）、MAVFI（DATE 2023）、FortiSky（DATE 2026）、CACM 2024 文章</td><td>低电压、低比特运行时会出错，怎么在省电和可靠之间取舍</td></tr>
+      <tr><td class="w">神经符号与推理硬件</td><td>CogSys（HPCA 2025，最佳论文）、REASON（HPCA 2026）、NSFlow（DAC 2025）</td><td>推理和逻辑类负载的专用加速</td></tr>
+      <tr class="key"><td class="w">存内 / 近存计算芯片<span class="tag key">贴近 Alpaca</span></td><td>RRAM 存内 + SRAM 近存 SoC，73.53 TOPS/W（ISSCC 2023、JSSC 2023）；Neuro-Symbolic Meets LLMs: A Memory-Centric Perspective（ESWEEK 2024）；存内计算纠错（DAC 2022）</td><td>直接对应"内存墙"：把计算搬到数据旁边，少搬数据</td></tr>
+      <tr><td class="w">服务与智能体系统</td><td>Mixture-of-Agents 服务（DAC 2026）、Dyserve 智能体工作流服务层（arXiv 2026）</td><td>推理服务调度，靠近"多机器人共享 GPU"这类问题</td></tr>
+      <tr><td class="w">AI 设计计算系统</td><td>组织 ISCA 2026 智能体做系统设计的研讨会</td><td>用智能体做体系结构设计空间探索</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tbl"><table>
+    <thead><tr><th>荣誉</th></tr></thead>
+    <tbody><tr><td>ACM SIGDA 杰出博士论文奖、ACM FCCM 杰出博士论文奖；DAC、IEEE CAL、SRC JUMP 2.0 最佳论文；IEEE Micro Top Picks；MLSys 和 CPS Rising Star</td></tr></tbody>
+  </table></div>
+
+</section>
+
 <section id="sources">
   <span class="eyebrow">来源</span>
   <ul class="src">
@@ -293,6 +316,7 @@ ul.src a{color:var(--teal)}
     <li><a href="https://ieeexplore.ieee.org/abstract/document/11095626" target="_blank" rel="noopener">SSD offloading for MoE considered harmful in energy efficiency（IEEE）</a></li>
     <li><a href="https://github.com/ismael-joffroy-chandoutis/autonomie-llm-local-2026" target="_blank" rel="noopener">Local LLM hardware guide 2026</a> · <a href="https://www.spheron.network/blog/dgx-spark-vs-mac-studio-for-local-llms-which-desk-side-box-w/" target="_blank" rel="noopener">DGX Spark vs Mac Studio</a> · <a href="https://github.com/visorcraft/strix-halo-llm-perf" target="_blank" rel="noopener">Strix Halo LLM perf</a></li>
     <li><a href="https://www.fierce-network.com/cloud/heres-why-nvidia-dropping-20b-groqs-ai-tech" target="_blank" rel="noopener">Nvidia–Groq deal（Fierce Network）</a> · <a href="https://www.constellationr.com/insights/news/nvidias-groq-deal-acquisition-acquihire-or-creative-licensing-deal" target="_blank" rel="noopener">Constellation Research</a></li>
+    <li><a href="https://zishenwan.github.io/" target="_blank" rel="noopener">zishenwan.github.io</a> · <a href="https://zishenwan.github.io/data/CV_Zishen_Wan.pdf" target="_blank" rel="noopener">CV</a> · <a href="https://arxiv.org/abs/2504.18945" target="_blank" rel="noopener">Generative AI in Embodied Systems（arXiv 2504.18945）</a> · <a href="https://wan-research-group.github.io/" target="_blank" rel="noopener">Wan Lab</a></li>
     <li>论文年份和会议来自原始论文；标注"推断"或"未核实"的条目请当作判断而非事实。</li>
   </ul>
 </section>
