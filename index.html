@@ -90,6 +90,11 @@ td .lab{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em
 td .before .lab{background:var(--warn-soft);color:var(--warn)}
 td .after .lab{background:var(--copper-soft);color:var(--copper)}
 td.w{max-width:13em}
+abbr.g{text-decoration:none;border-bottom:1px dotted var(--teal);cursor:help;color:inherit}
+abbr.g:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.gpop{position:absolute;z-index:20;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;box-shadow:0 6px 24px rgba(0,0,0,.12)}
+.gpop b{display:block;color:var(--teal);margin-bottom:2px}
+.hint{font-size:13px;color:var(--muted)}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 </style>
 
@@ -103,6 +108,7 @@ td.w{max-width:13em}
 <nav class="chips" aria-label="章节">
   <a href="#core">核心公式</a><a href="#l1">① 压缩权重</a><a href="#l2">② KV 与注意力</a><a href="#l3">③ 并行解码</a><a href="#l4">④ 分层与卸载</a><a href="#l5">⑤ 模型结构</a><a href="#people">关键团队</a><a href="#biz">商业时间线</a><a href="#now">2026 前沿</a><a href="#alpaca">Alpaca 的位置</a><a href="#wan">Zishen Wan</a>
 </nav>
+<p class="hint">带虚线下划线的词可以点一下看解释。</p>
 
 <section id="core">
   <span class="eyebrow">出发点</span>
@@ -144,7 +150,7 @@ td.w{max-width:13em}
       <tr><td class="y">2016</td><td class="w">EIE（Han 等，ISCA）</td><td><p class="before"><span class="lab">之前</span>上一条压出来的是稀疏加查表的格式，CPU/GPU 不会直接算，要先解压回稠密矩阵，省下的内存和能耗又还回去了。</p><p class="how"><span class="lab">做法</span>设计一块专用芯片，直接在压缩格式上算：跳过为零的权重和激活，用查表把簇编号还原成权重值，多个处理单元并行处理不同的行。</p><p class="after"><span class="lab">之后</span>全连接层上比 GPU 快约 13 倍、能效高约 3,400 倍。结论：压缩要配专用硬件才能兑现。</p></td></tr>
       <tr><td class="y">2022</td><td class="w">LLM.int8()（Dettmers 等，NeurIPS）</td><td><p class="before"><span class="lab">之前</span>大模型用 FP16 存和算，每个参数 16 bit，175B 要 350GB 显存。想改成 INT8（8 bit）把显存减半：小模型可以，但 6.7B 以上一改精度就崩。原因是约 0.1% 的隐藏维度会出现幅度极大的离群值，按 8 bit 量化时这些极大值把其余正常数值全压成 0。</p><p class="how"><span class="lab">做法</span><b>混合精度分解</b>：把含离群值的那几列单独挑出来，仍用 FP16 相乘；其余 99.9% 的列用 INT8 相乘；两部分结果相加。</p><p class="after"><span class="lab">之后</span>175B 可以用 INT8 存和算，显存从 350GB 降到 175GB，精度和 FP16 完全一样；集成进 Hugging Face，一行参数启用。</p></td></tr>
       <tr><td class="y">2023</td><td class="w">GPTQ（Alistarh 组，ICLR）</td><td><p class="before"><span class="lab">之前</span>INT8 已经可用，但还想更小。降到 4 bit 以下，简单四舍五入掉点严重；逐个权重做最优补偿（OBQ）精度好，但 1B 以上的模型算不动。</p><p class="how"><span class="lab">做法</span>逐层做，用少量校准数据算出该层输入的二阶信息。按列依次量化，每量化完一列就把产生的误差分摊到还没量化的列上去补偿；批量更新和 Cholesky 分解让它在大模型上跑得动。</p><p class="after"><span class="lab">之后</span>175B 在一张 A100 上约 4 小时量化到 3–4 bit，困惑度几乎不变；3-bit 的 175B 能放进单张 80GB 显卡。</p></td></tr>
-      <tr><td class="y">2023</td><td class="w">SmoothQuant（Song Han 组，ICML）</td><td><p class="before"><span class="lab">之前</span>权重量化到 INT8 没问题，但要用 GPU 的 INT8 算子真正加速，激活也得是 INT8。激活里有些通道的数值比别的大上百倍，INT8 一量化，小数值全变 0，所以 W8A8（权重和激活都 8 bit）一直做不到。</p><p class="how"><span class="lab">做法</span>数学上等价的变换：激活按通道除以一个系数 s，对应的权重乘以 s，乘积不变。这样把一半的量化难度从激活"挪"到权重上。系数离线算好，推理时没有额外开销。</p><p class="after"><span class="lab">之后</span>530B 模型做到 W8A8，精度不降，用上 INT8 Tensor Core：约 1.56 倍加速、显存减半。</p></td></tr>
+      <tr><td class="y">2023</td><td class="w">SmoothQuant（Song Han 组，ICML）</td><td><p class="before"><span class="lab">之前</span>权重量化到 INT8 没问题，但要用 GPU 的 INT8 算子真正加速，激活也得是 INT8。激活里有些通道的数值比别的大上百倍，INT8 一量化，小数值全变 0，所以 W8A8（权重和激活都 8 bit）一直做不到。</p><p class="how"><span class="lab">做法</span>一层的计算是 Y = X·W（X 是激活，W 是权重）。X 的第 j 个通道如果有离群值，就给这一通道除以一个系数 s_j，同时把 W 的第 j 行乘以同一个 s_j；因为 (X_j / s_j)·(s_j·W_j) = X_j·W_j，结果一个数都不变。<b>为什么有用</b>：量化误差由每个张量里的最大值决定（最大值定了刻度，小数被压扁）。除以 s_j 后激活这一通道的最大值降下来了；权重那一行虽然被放大，但权重本来分布平坦、没有离群值，放大一点仍然好量化。<b>s_j 怎么取</b>：s_j = max|X_j|^α ÷ max|W_j|^(1−α)，α 取 0.5 时两边的最大值被拉到同一量级。比如某通道激活最大 100、权重最大 1，s = 10，之后激活最大 10、权重最大 10，都能用 INT8 表示。系数用校准数据离线算好，直接乘进权重里存起来，推理时没有额外计算。</p><p class="after"><span class="lab">之后</span>530B 模型做到 W8A8，精度不降，用上 INT8 Tensor Core：约 1.56 倍加速、显存减半。</p></td></tr>
       <tr class="key"><td class="y">2023–24</td><td class="w">AWQ（Song Han 组，MLSys 2024 最佳论文）<span class="tag key">关键</span></td><td><p class="before"><span class="lab">之前</span>4-bit 权重量化成了主流需求。GPTQ 靠校准数据做优化，容易对校准集过拟合、换任务掉点；把重要权重保留成 FP16 精度好，但变成混合精度，硬件不好加速。</p><p class="how"><span class="lab">做法</span>发现只有约 1% 的权重通道重要，而且重要性要看对应<b>激活</b>的幅度，不是权重本身。给这些通道乘一个大于 1 的系数再量化，它们的相对误差就变小；系数用激活统计做小范围搜索。全部权重还是统一的 INT4，不用反向传播。</p><p class="after"><span class="lab">之后</span>4-bit 精度接近原模型，跨任务稳定；配 TinyChat 在桌面 GPU 和 Jetson Orin 上约 3 倍快。成了 vLLM、TensorRT-LLM、Hugging Face 的标准 4-bit 方案。</p></td></tr>
       <tr><td class="y">2023</td><td class="w">QLoRA（Dettmers 等，NeurIPS）</td><td><p class="before"><span class="lab">之前</span>微调 65B 模型要存 16-bit 权重、梯度和优化器状态，需要 780GB 以上显存，只有大集群做得了。</p><p class="how"><span class="lab">做法</span>底座模型用 4-bit NF4 存（量化点按正态分布的分位数取，因为预训练权重近似正态）并冻结，只训练插在旁边的 LoRA 低秩适配器；量化常数本身再量化一次；优化器状态在显存不够时换页到 CPU 内存。</p><p class="after"><span class="lab">之后</span>一张 48GB 显卡就能微调 65B，效果达到 ChatGPT 约 99%。消费级显卡能微调大模型。</p></td></tr>
       <tr><td class="y">2023–24</td><td class="w">QuIP#（ICML 2024）、AQLM（ICML 2024）</td><td><p class="before"><span class="lab">之前</span>4-bit 已经成熟。再往下到 2-bit，每个权重只有 4 个取值，离群值一出现，均匀量化的误差大到模型不可用。</p><p class="how"><span class="lab">做法</span><b>QuIP#</b>：先给权重矩阵前后乘随机 Hadamard 旋转，把离群值"摊平"成均匀分布，再 8 个权重一组用格点码本编码。<b>AQLM</b>：每组权重表示成几个码本向量之和，码本和编码联合优化。</p><p class="after"><span class="lab">之后</span>2-bit 的大模型第一次基本可用，在 2-bit 区间达到当时最好的精度和体积折中。</p></td></tr>
@@ -332,6 +338,55 @@ td.w{max-width:13em}
 </section>
 </div>
 
+
+<script>
+(function(){
+  var G={"外存": "片外的存储器，这里指 DRAM 内存和硬盘。相对的是\"片上\"：直接做在芯片里的 SRAM。读外存比读片上慢得多、也费电得多。", "片上 SRAM": "做在芯片内部的小容量高速存储（几 MB 到几十 MB），读写快、省电，但很贵、很小。", "DRAM": "普通内存条用的存储（电脑的 16GB、64GB 内存就是它）。容量大、便宜，但带宽比显存低，比片上 SRAM 慢得多。", "HBM": "高带宽显存，叠在数据中心 GPU 旁边的高速内存（H100 带宽 3.35 TB/s），容量 80–192GB，非常贵。", "带宽": "每秒能从内存搬多少字节。解码时每出一个 token 都要把激活的权重读一遍，所以带宽直接决定 token/s 的上限。", "Tensor Core": "NVIDIA GPU 里专门做矩阵乘法的单元。只支持特定的数据格式（FP16、INT8、FP8、FP4 等），不支持的格式就得先转换，享受不到加速。", "FP16": "16 位浮点数，大模型训练和推理的常用精度；每个参数占 2 字节。", "INT8": "8 位整数，每个参数占 1 字节。用它存权重或激活，显存减半，而且整数乘法更快。", "FP8": "8 位浮点数，Hopper 以后的 GPU 原生支持；比 INT8 更能照顾数值范围大的情况。", "量化": "把高精度数（如 16 位浮点）映射成少量离散值（如 256 个整数或 16 个值），用更少的比特存，代价是有舍入误差。", "离群值": "少数幅度远大于其他数的值。量化时它们把刻度撑大，让其余正常数值都被压成同一个值，精度崩掉。", "困惑度": "语言模型评测指标，衡量模型对测试文本有多\"意外\"，越低越好；量化后困惑度不涨就说明没掉点。", "校准数据": "量化时用来观察激活分布的一小批样本（通常几百条），不用于训练。", "二阶信息": "损失函数的二阶导数（Hessian 矩阵），告诉你改动某个权重会让输出变化多少，用来判断哪些权重动不得。", "Hessian": "损失函数的二阶导数矩阵，衡量每个权重的\"敏感度\"。", "Cholesky 分解": "把对称正定矩阵分解成下三角乘其转置的数值方法，用来稳定地求逆。", "剪枝": "把不重要的权重（通常是绝对值小的）直接删掉置零，让矩阵变稀疏。", "稀疏": "矩阵里大部分元素是零。存储时只存非零值和位置，计算时跳过零。", "k-means": "聚类算法：把一堆数分成 k 簇，每簇用中心代表。这里用来把一层的权重归成少数几个代表值。", "霍夫曼编码": "无损压缩编码，出现频率高的符号用短编码、频率低的用长编码。", "LoRA": "低秩适配：冻结原模型，在旁边加两个很小的矩阵 A·B 来学习改动量，只训练这两个小矩阵。", "低秩": "一个大矩阵可以近似写成两个瘦矩阵相乘，参数量大减。秩越低越省。", "码本": "一张\"代表值\"的表。向量量化时，一组权重不单独存，只存它最接近的码本条目的编号。", "Hadamard": "一种快速的正交变换（随机旋转），把分布里的尖峰摊平成接近高斯。", "直通估计": "STE。取整没有梯度，反向传播时假装它是恒等函数，让梯度直接穿过去。", "分位数": "把分布按概率等分的切点。按分位数取量化点，每个量化值覆盖同样多的权重。", "KV cache": "注意力要用到之前每个 token 的 Key 和 Value 向量；为了不重算，把它们存起来，这块缓存随上下文长度线性增长。", "softmax": "把一组分数变成加起来等于 1 的概率；注意力用它决定每个 token 看别的 token 的权重。", "自回归": "一次生成一个 token，把它接到输入后面再生成下一个，天然是串行的。", "token": "模型处理文本的最小单位，大约是一个词或半个词；中文常是一到两个字。", "MoE": "混合专家：每层有很多个并列的子网络（专家），每个 token 只由路由器挑几个来算。总参数大，但每个 token 只用一小部分。", "路由": "MoE 里决定一个 token 交给哪几个专家处理的小网络。", "专家": "MoE 每层里并列的子网络（通常是一个 MLP）。", "卸载": "把放不进显存的部分（权重、专家、KV）放到 CPU 内存或硬盘，需要时再搬过来。", "预取": "在真正需要之前就提前把数据搬进来，把搬运时间藏在计算后面。", "LRU": "最近最少使用：缓存满了就扔掉最久没用过的那一个。LFU 是扔掉用得最少的。", "闪存": "SSD、手机存储用的非易失存储。容量大、便宜，但带宽只有 DRAM 的几十分之一，而且小块随机读很慢，连续大块读才快。", "统一内存": "CPU 和 GPU 共用同一块物理内存（Apple M 系列、DGX Spark、Strix Halo），模型不用在显存和内存之间来回拷。", "AMX": "Intel 服务器 CPU 上的矩阵运算指令集，让 CPU 也能较快地做矩阵乘。", "负载均衡": "MoE 训练时要防止 token 都挤到少数几个专家，否则其他专家学不到东西。", "MLA": "多头潜在注意力：把 K 和 V 压成一个低维向量存，大幅缩小 KV cache。", "线性注意力": "把注意力改写成不需要存所有历史 token 的形式，状态大小固定，不随长度增长；代价是精确度略低。", "状态空间": "SSM，如 Mamba。用一个固定大小的状态循环地吸收序列信息，和 RNN 类似，长度再长状态也不变大。", "幂律": "少数元素占了绝大多数的使用频率，长尾分布。这里指少数神经元几乎总被激活。", "NPU": "手机或笔记本芯片里专门跑神经网络的单元，能效高但灵活性差。", "线性规划": "在一组线性约束下求线性目标最优的数学方法。", "写时复制": "多个请求共享同一块数据，只有谁要改时才复制一份。", "树形注意力": "把多条候选序列组成一棵树，一次前向就能同时验证所有分支。", "SVD": "奇异值分解，把矩阵拆成三个矩阵相乘；只保留前 r 个奇异值就得到秩为 r 的近似。", "有效秩": "矩阵的信息实际集中在多少个方向上；越高说明越\"满\"，越难压。", "Roofline": "一张图：横轴是每字节内存访问对应多少次计算，纵轴是能达到的速度。能告诉你一个计算是被带宽卡住还是被算力卡住。", "内存墙": "处理器速度增长远快于内存带宽，越来越多的时间花在等数据上。", "OBQ": "最优脑量化：逐个权重量化并用二阶信息补偿其他权重，精度好但复杂度高，大模型跑不动。", "CSR": "压缩稀疏行格式，只存非零值、它们的列号和每行起点。", "片外": "不在芯片内部，要通过总线去读的存储，速度和能耗都差很多。", "ReLU": "激活函数 max(0, x)，输出里有大量的零，这就是稀疏性的来源。", "存内计算": "把计算做在存储单元里面或旁边，数据不用搬到处理器，专门对付内存墙。", "RRAM": "阻变存储器，一种新型非易失存储，可以直接在阵列里做乘加运算。", "TOPS": "每秒万亿次运算，衡量 AI 芯片算力；TOPS/W 是每瓦的算力，衡量能效。", "CXL": "一种让 CPU 通过 PCIe 挂接大量外部内存的互联标准。", "CUDA Graph": "把一串 GPU 操作录成一张图一次提交，省掉逐个启动的开销。", "投影": "用一个矩阵把向量从一个空间映射到另一个空间（如把 K、V 压到低维再还原）。", "残差": "压缩或近似后丢掉的那部分差值。"};
+  var terms=Object.keys(G).sort(function(a,b){return b.length-a.length});
+  var esc=function(t){return t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')};
+  var re=new RegExp('('+terms.map(esc).join('|')+')','g');
+  var skip=/^(SCRIPT|STYLE|A|ABBR|BUTTON|INPUT|NAV|H1|H2|H3)$/;
+  function walk(n,seen){
+    if(n.nodeType===1){
+      if(skip.test(n.tagName)||n.classList.contains('lab')||n.classList.contains('eyebrow')||n.classList.contains('formula')||n.classList.contains('presets')) return;
+      if(n.tagName==='P'||n.tagName==='TD'||n.tagName==='LI') seen={};
+      Array.prototype.slice.call(n.childNodes).forEach(function(c){walk(c,seen)});
+      return;
+    }
+    if(n.nodeType!==3||!re.test(n.nodeValue)) return;
+    re.lastIndex=0;
+    var frag=document.createDocumentFragment(), txt=n.nodeValue, last=0, m;
+    while((m=re.exec(txt))){
+      var t=m[1];
+      if(seen[t]){continue}
+      seen[t]=1;
+      frag.appendChild(document.createTextNode(txt.slice(last,m.index)));
+      var ab=document.createElement('abbr'); ab.className='g'; ab.textContent=t; ab.setAttribute('tabindex','0'); ab.setAttribute('role','button'); ab.setAttribute('aria-label',t+'，点击看解释');
+      frag.appendChild(ab); last=m.index+t.length;
+    }
+    if(last===0) return;
+    frag.appendChild(document.createTextNode(txt.slice(last)));
+    n.parentNode.replaceChild(frag,n);
+  }
+  document.querySelectorAll('section').forEach(function(sec){walk(sec,{})});
+  var pop=document.createElement('div'); pop.className='gpop'; pop.hidden=true; document.body.appendChild(pop);
+  function show(ab){
+    pop.innerHTML='<b>'+ab.textContent+'</b>'+G[ab.textContent]; pop.hidden=false;
+    var r=ab.getBoundingClientRect(), w=Math.min(340,window.innerWidth-24);
+    pop.style.width=w+'px';
+    var left=Math.max(12,Math.min(r.left,window.innerWidth-w-12));
+    pop.style.left=left+'px'; pop.style.top=(window.scrollY+r.bottom+6)+'px';
+  }
+  document.addEventListener('click',function(e){
+    var ab=e.target.closest&&e.target.closest('abbr.g');
+    if(ab){ if(!pop.hidden&&pop.dataset.for===ab.textContent&&pop.dataset.y==r(ab)){pop.hidden=true;return} pop.dataset.for=ab.textContent; pop.dataset.y=r(ab); show(ab); e.stopPropagation(); return;}
+    if(!e.target.closest('.gpop')) pop.hidden=true;
+  });
+  function r(ab){return String(ab.getBoundingClientRect().top|0)}
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') pop.hidden=true; if((e.key==='Enter'||e.key===' ')&&document.activeElement.matches&&document.activeElement.matches('abbr.g')){e.preventDefault();document.activeElement.click();}});
+  window.addEventListener('scroll',function(){pop.hidden=true},{passive:true});
+})();
+</script>
 <script>
 (function(){
   var P={ds:{bw:819,tot:671,act:37,bits:4},oss:{bw:273,tot:117,act:5.1,bits:4.25},qwen:{bw:256,tot:30.5,act:3.3,bits:4}};
