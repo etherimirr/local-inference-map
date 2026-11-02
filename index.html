@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>本地大模型推理脉络</title>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;600;700&display=swap">
+<style>
+/* Layout: single reading column like a datasheet; sticky chip nav; each tech line is a numbered "bus lane" because the five lines are parallel, not a sequence */
+:root{
+  --bg:#eef2f1; --surface:#ffffff; --ink:#16201e; --muted:#566663; --line:#d3dcd9;
+  --copper:#a95a25; --copper-soft:#f5e6da; --teal:#1d6a65; --teal-soft:#dcecea; --warn:#8a5a00; --warn-soft:#f6ecd2;
+  --f-display:"Archivo","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1413; --surface:#151d1b; --ink:#e3eae8; --muted:#94a5a1; --line:#2a3633;
+  --copper:#e3955f; --copper-soft:#3a2516; --teal:#6cc0b7; --teal-soft:#16302d; --warn:#e2b75a; --warn-soft:#33290f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1413; --surface:#151d1b; --ink:#e3eae8; --muted:#94a5a1; --line:#2a3633;
+  --copper:#e3955f; --copper-soft:#3a2516; --teal:#6cc0b7; --teal-soft:#16302d; --warn:#e2b75a; --warn-soft:#33290f; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7}
+.wrap{max-width:920px;margin:0 auto;padding-inline:18px;padding-block:28px 64px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.25;margin:0}
+h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:700;margin-bottom:6px}
+h3{font-size:17px;font-weight:700}
+p{margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--copper)}
+.lede{color:var(--muted);max-width:62ch}
+.mono{font-family:var(--f-mono)}
+section{display:flex;flex-direction:column;gap:14px;padding-block:28px;border-top:1px solid var(--line)}
+header{display:flex;flex-direction:column;gap:12px;padding-bottom:20px}
+
+nav.chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:8px;overflow-x:auto;padding-block:10px;margin-inline:-18px;padding-inline:18px;border-bottom:1px solid var(--line)}
+nav.chips a{flex:0 0 auto;font-size:13px;text-decoration:none;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+nav.chips a:hover,nav.chips a:focus-visible{border-color:var(--copper);color:var(--copper);outline:none}
+
+.formula{font-family:var(--f-mono);font-size:clamp(15px,3.4vw,19px);background:var(--copper-soft);color:var(--ink);border-radius:10px;padding:14px 16px;border:1px solid var(--line)}
+.formula b{color:var(--copper)}
+
+.calc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.presets{display:flex;flex-wrap:wrap;gap:8px}
+.presets button{font:inherit;font-size:13px;background:var(--teal-soft);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+.presets button[aria-pressed="true"]{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal)}
+.presets button:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.fields input{font-family:var(--f-mono);font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+.fields input:focus-visible{outline:2px solid var(--copper);outline-offset:1px}
+.out{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.out div{border-left:3px solid var(--copper);padding:4px 0 4px 12px}
+.out .v{font-family:var(--f-mono);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.out .k{font-size:12px;color:var(--muted)}
+.note{font-size:13px;color:var(--muted)}
+
+.lane{display:flex;flex-direction:column;gap:10px;padding-block:6px}
+.lane-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.lane-id{font-family:var(--f-mono);font-size:13px;font-weight:600;color:var(--surface);background:var(--teal);border-radius:6px;padding:1px 8px}
+.trend{font-size:14px;background:var(--teal-soft);border-radius:8px;padding:8px 12px}
+.trend b{color:var(--teal)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:none}
+th{font-size:12px;letter-spacing:.04em;color:var(--muted);font-weight:600;background:var(--bg)}
+td.y{font-family:var(--f-mono);white-space:nowrap;color:var(--copper);font-variant-numeric:tabular-nums}
+td.w{font-weight:600;min-width:7em}
+tr.key td{background:var(--copper-soft)}
+.tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;border-radius:5px;padding:0 6px;margin-left:4px;vertical-align:1px}
+.tag.inf{background:var(--warn-soft);color:var(--warn)}
+.tag.key{background:var(--copper);color:var(--surface)}
+
+.callout{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--copper);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+ol.qs{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:6px}
+ul.src{margin:0;padding-left:1.2em;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+ul.src a{color:var(--teal)}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">研究与商业脉络 · 2026-11</span>
+  <h1>本地大模型推理脉络</h1>
+  <p class="lede">生成一个 token，要把激活的权重从内存里读一遍，而计算量很小。所以把前沿模型搬出数据中心，难点在内存：放不放得下（容量），读不读得快（带宽）。下面五条技术线和整个商业故事，都在围绕这两个约束。</p>
+</header>
+
+<nav class="chips" aria-label="章节">
+  <a href="#core">核心公式</a><a href="#l1">① 压缩权重</a><a href="#l2">② KV 与注意力</a><a href="#l3">③ 并行解码</a><a href="#l4">④ 分层与卸载</a><a href="#l5">⑤ 模型结构</a><a href="#people">关键团队</a><a href="#biz">商业时间线</a><a href="#now">2026 前沿</a><a href="#alpaca">Alpaca 的位置</a>
+</nav>
+
+<section id="core">
+  <span class="eyebrow">出发点</span>
+  <h2>解码是在读内存</h2>
+  <p class="lede">内存墙（Wulf &amp; McKee, 1995）和 Roofline 模型（Williams &amp; Patterson, 2009）说的是同一件事：算力增长远快于内存带宽。LLM 解码落在带宽受限的那一侧。</p>
+  <div class="formula">每秒 token 上限 ≈ <b>内存带宽</b> ÷ 每个 token 要读的字节数<br>需要的内存 ≈ <b>总参数</b> × 每参数比特 ÷ 8（再加 KV cache）</div>
+
+  <div class="calc" aria-label="带宽和容量估算">
+    <div class="presets" role="group" aria-label="示例配置">
+      <button type="button" data-p="ds">DeepSeek-V3 · Mac M3 Ultra</button>
+      <button type="button" data-p="oss">gpt-oss-120b · DGX Spark</button>
+      <button type="button" data-p="qwen">Qwen3-30B-A3B · Strix Halo</button>
+    </div>
+    <div class="fields">
+      <label for="bw">内存带宽 GB/s<input id="bw" type="number" min="1" step="1" inputmode="decimal"></label>
+      <label for="tot">总参数 B<input id="tot" type="number" min="0.1" step="0.1" inputmode="decimal"></label>
+      <label for="act">每 token 激活参数 B<input id="act" type="number" min="0.1" step="0.1" inputmode="decimal"></label>
+      <label for="bits">每参数比特<input id="bits" type="number" min="1" max="32" step="0.25" inputmode="decimal"></label>
+    </div>
+    <div class="out" aria-live="polite">
+      <div><div class="v" id="o-cap">–</div><div class="k">权重要占的内存（GB）</div></div>
+      <div><div class="v" id="o-read">–</div><div class="k">每个 token 读多少（GB）</div></div>
+      <div><div class="v" id="o-tps">–</div><div class="k">理论上限（token/s）</div></div>
+    </div>
+    <p class="note">理论上限，实际一般只有 50–70%；不含 KV cache，长上下文时还要更多内存。示例参数：DeepSeek-V3 总 671B、激活 37B；gpt-oss-120b 约 117B、激活约 5.1B；Qwen3-30B-A3B 约 30.5B、激活约 3.3B。</p>
+  </div>
+  <div class="callout">
+    <h3>MoE 改变了账本</h3>
+    <p>MoE 每个 token 只读几十 B 参数，带宽压力小了；但所有专家都得放在内存里，要几百 GB。问题从"带宽不够"转成了<b>"容量不够"</b>。谁能便宜地提供几百 GB、带宽过得去的内存，谁就能在家跑前沿模型。</p>
+  </div>
+</section>
+
+<section id="l1">
+  <div class="lane-head"><span class="lane-id">线 ①</span><h2>压缩权重：少读字节</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <tbody>
+      <tr><td class="y">2016</td><td class="w">Deep Compression（Han，ICLR 最佳论文）、EIE（ISCA）</td><td>剪枝 + 量化 + 编码，CNN 时代的开山之作</td></tr>
+      <tr><td class="y">2022</td><td class="w">LLM.int8()（Dettmers，NeurIPS）</td><td>发现大模型激活里有离群值，单独用高精度处理，8-bit 不掉点</td></tr>
+      <tr><td class="y">2023</td><td class="w">GPTQ（ICLR）</td><td>训练后一次性量化到 4-bit，用二阶信息逐列补偿误差</td></tr>
+      <tr><td class="y">2023</td><td class="w">SmoothQuant（ICML）</td><td>把激活的离群值转移到权重上，权重和激活都 8-bit</td></tr>
+      <tr class="key"><td class="y">2023–24</td><td class="w">AWQ（MLSys 2024 最佳论文）<span class="tag key">关键</span></td><td>按激活重要性保护约 1% 的关键权重；成为本地 4-bit 部署的标配</td></tr>
+      <tr><td class="y">2023</td><td class="w">QLoRA（NeurIPS）</td><td>4-bit NF4 底座上微调，消费级显卡能微调大模型</td></tr>
+      <tr><td class="y">2023–24</td><td class="w">QuIP / QuIP#、AQLM（ICML 2024）</td><td>随机旋转消除离群值 + 向量码本，推到 2-bit</td></tr>
+      <tr><td class="y">2024–25</td><td class="w">BitNet b1.58 → b1.58 2B4T</td><td>三值权重 {-1, 0, 1}，从训练开始就低比特，乘法变加法</td></tr>
+      <tr><td class="y">2025</td><td class="w">MXFP4 / NVFP4；gpt-oss 以 MXFP4 发布</td><td>4-bit 浮点进了硬件和官方模型</td></tr>
+      <tr><td class="y">2026</td><td class="w">MoE 专家级压缩（如 RFID-MoE，ICML 2026）</td><td>按专家重要性分配不同压缩率</td></tr>
+    </tbody>
+  </table></div>
+  <p class="trend"><b>走向：</b>事后量化 → 量化感知训练、原生低比特训练 → 硬件原生支持 4-bit 浮点</p>
+</section>
+
+<section id="l2">
+  <div class="lane-head"><span class="lane-id">线 ②</span><h2>KV cache 与注意力：长上下文的内存大头</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <tbody>
+      <tr><td class="y">2019</td><td class="w">MQA（Shazeer）</td><td>所有注意力头共享一份 K/V，KV cache 缩小几十倍</td></tr>
+      <tr class="key"><td class="y">2022</td><td class="w">FlashAttention（Dao，NeurIPS）<span class="tag key">关键</span></td><td>IO 感知：分块在片上 SRAM 里算，不把注意力矩阵写回显存</td></tr>
+      <tr><td class="y">2022</td><td class="w">Orca（OSDI）</td><td>连续批处理</td></tr>
+      <tr class="key"><td class="y">2023</td><td class="w">vLLM / PagedAttention（SOSP）<span class="tag key">关键</span></td><td>像操作系统分页一样管理 KV cache，几乎没有碎片</td></tr>
+      <tr><td class="y">2023</td><td class="w">GQA（EMNLP）</td><td>MQA 和多头之间的折中，Llama 2/3 采用</td></tr>
+      <tr><td class="y">2023–24</td><td class="w">H2O（NeurIPS 2023）、StreamingLLM（ICLR 2024）</td><td>只留重要的 token；"注意力汇点"让流式无限长生成成为可能</td></tr>
+      <tr><td class="y">2024</td><td class="w">KIVI（ICML）、KVQuant（NeurIPS）</td><td>KV cache 量化到 2–4 bit</td></tr>
+      <tr><td class="y">2024</td><td class="w">MLA（DeepSeek-V2）</td><td>把 K/V 压成低秩潜向量，KV 大幅缩小</td></tr>
+      <tr><td class="y">2024–25</td><td class="w">混合注意力：Jamba、MiniMax-01、Qwen3-Next、Kimi Linear</td><td>大部分层换成线性注意力或状态空间，KV 几乎不随长度增长</td></tr>
+    </tbody>
+  </table></div>
+  <p class="trend"><b>走向：</b>先省带宽（FlashAttention）→ 再省容量（分页、量化、低秩）→ 从模型结构上去掉 KV cache</p>
+</section>
+
+<section id="l3">
+  <div class="lane-head"><span class="lane-id">线 ③</span><h2>并行解码：读一次权重，多出几个 token</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <tbody>
+      <tr class="key"><td class="y">2022–23</td><td class="w">投机解码（Leviathan 等 ICML 2023；DeepMind 2023）<span class="tag key">关键</span></td><td>小模型先猜几个 token，大模型一次并行验证；结果和原模型完全一致</td></tr>
+      <tr><td class="y">2024</td><td class="w">Medusa（ICML）、EAGLE（ICML）/ EAGLE-2</td><td>不要独立小模型，在大模型上加预测头；在特征层预测</td></tr>
+      <tr><td class="y">2024–25</td><td class="w">MTP（DeepSeek-V3）、EAGLE-3</td><td>训练时就让模型预测后面几个 token</td></tr>
+      <tr><td class="y">2025</td><td class="w">扩散语言模型：LLaDA、Mercury、Gemini Diffusion</td><td>并行去噪出整段，不再逐个生成</td></tr>
+    </tbody>
+  </table></div>
+  <p class="trend"><b>为什么对本地特别重要：</b>本地是单用户、小批量，算力大量闲置。投机解码把闲置的算力换成速度</p>
+</section>
+
+<section id="l4">
+  <div class="lane-head"><span class="lane-id">线 ④</span><h2>分层存放、按需搬运：容量不够怎么办</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <tbody>
+      <tr><td class="y">2023</td><td class="w">FlexGen（ICML）</td><td>权重和 KV 分到 GPU / CPU / 磁盘，用调度换吞吐</td></tr>
+      <tr><td class="y">2023</td><td class="w">Deja Vu（ICML）</td><td>上下文稀疏性：每个输入只用到一小部分神经元，可预测并跳过</td></tr>
+      <tr class="key"><td class="y">2023-12</td><td class="w">LLM in a flash（Apple，ACL 2024）<span class="tag key">关键</span></td><td>权重放闪存，只把需要的部分读进 DRAM；窗口化复用、按行列打包读取</td></tr>
+      <tr><td class="y">2023-12</td><td class="w">PowerInfer（SOSP 2024）、PowerInfer-2（2024）</td><td>热神经元放 GPU、冷神经元放 CPU；后来搬到手机</td></tr>
+      <tr><td class="y">2023–24</td><td class="w">MoE 专家卸载（如 Mixtral 卸载）</td><td>只把要用的专家搬进显存</td></tr>
+      <tr class="key"><td class="y">2025</td><td class="w">KTransformers（清华，SOSP 2025）<span class="tag key">关键</span></td><td>注意力、KV、共享专家放 GPU，路由专家放 CPU 内存；单张 16GB 消费级卡加大内存跑 671B DeepSeek，提速 1.66–19.7 倍</td></tr>
+      <tr><td class="y">2026</td><td class="w">DALI、FlashMoE、MoE-CORE、FineMoE（EuroSys '26）</td><td>专家缓存与预取策略（如证明 LRU/LFU 不适合专家路由）、SSD 直读专家、手机 NPU + 闪存</td></tr>
+    </tbody>
+  </table></div>
+  <p class="trend"><b>走向：</b>通用卸载 → 利用稀疏性 → 针对 MoE 的专家放置、缓存和预取（2026 年最热）。反面证据：用 SSD 卸载 MoE 权重，每 token 能耗可达 HBM 的约 12 倍</p>
+</section>
+
+<section id="l5">
+  <div class="lane-head"><span class="lane-id">线 ⑤</span><h2>模型结构变得对本地友好</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>时间</th><th>变化</th><th>意义</th></tr></thead>
+    <tbody>
+      <tr><td class="y">2023-12</td><td class="w">Mixtral 8x7B</td><td>开源 MoE 走进大众</td></tr>
+      <tr class="key"><td class="y">2024-12 / 2025-01</td><td class="w">DeepSeek-V3 / R1<span class="tag key">关键</span></td><td>671B 总参数、激活 37B；MLA + MTP + FP8 训练。开源模型第一次接近前沿</td></tr>
+      <tr><td class="y">2025</td><td class="w">Qwen3、Kimi K2（1T）、gpt-oss（MXFP4）</td><td>前沿开源模型几乎全是 MoE；gpt-oss-120b 单张 80GB 卡可跑</td></tr>
+      <tr><td class="y">2025–26</td><td class="w">Qwen3-Next、Kimi Linear；DeepSeek-V4、Qwen3.5</td><td>激活参数越来越少，KV 越来越小</td></tr>
+    </tbody>
+  </table></div>
+  <p class="trend"><b>结论：</b>MoE 让瓶颈从带宽转到容量，这是 Alpaca 这类公司成立的时间背景</p>
+</section>
+
+<section id="people">
+  <span class="eyebrow">谁定义了这条线</span>
+  <h2>关键团队</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>团队</th><th>代表作</th><th>地位</th></tr></thead>
+    <tbody>
+      <tr class="key"><td class="w">Song Han（MIT HAN Lab）</td><td>Deep Compression、SmoothQuant、AWQ、StreamingLLM、QServe、SVDQuant；创业公司 OmniML 2023 年被 NVIDIA 收购</td><td>压缩线和端侧线的核心人物，就在剑桥</td></tr>
+      <tr><td class="w">Tim Dettmers</td><td>LLM.int8()、QLoRA</td><td>低比特与本地微调</td></tr>
+      <tr><td class="w">Dan Alistarh（IST Austria）</td><td>GPTQ、SpQR</td><td>训练后量化</td></tr>
+      <tr><td class="w">Tri Dao</td><td>FlashAttention 系列</td><td>IO 感知注意力</td></tr>
+      <tr><td class="w">Berkeley Sky Lab</td><td>vLLM / PagedAttention</td><td>推理服务系统</td></tr>
+      <tr><td class="w">DeepSeek</td><td>MLA、细粒度 MoE、MTP、FP8 训练</td><td>改变了开源模型格局</td></tr>
+      <tr><td class="w">Apple</td><td>LLM in a flash、MLX</td><td>本地推理的标志性工作</td></tr>
+      <tr><td class="w">清华 MADSys、上交 IPADS</td><td>KTransformers、PowerInfer</td><td>本地 MoE / 稀疏推理</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="biz">
+  <span class="eyebrow">商业脉络</span>
+  <h2>从 llama.cpp 到 200 亿美元的授权</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>时间</th><th>事件</th><th>意义</th></tr></thead>
+    <tbody>
+      <tr><td class="y">2020-11</td><td class="w">Apple M1 统一内存</td><td>CPU 和 GPU 共用一大块内存，后来成了本地大模型的意外赢家</td></tr>
+      <tr><td class="y">2023-03</td><td class="w">llama.cpp（后来的 GGUF 格式）</td><td>本地推理的开源基石，k-quant 量化</td></tr>
+      <tr><td class="y">2023</td><td class="w">Ollama、LM Studio、MLC-LLM；12 月 Apple MLX</td><td>一条命令就能在本地跑模型</td></tr>
+      <tr><td class="y">2024</td><td class="w">Apple Intelligence、Copilot+ PC、Gemini Nano</td><td>大厂把小模型放进设备</td></tr>
+      <tr><td class="y">2024</td><td class="w">Groq LPU、Cerebras WSE-3、Etched Sohu、d-Matrix</td><td>推理专用芯片的创业热潮</td></tr>
+      <tr><td class="y">2025-03</td><td class="w">Mac Studio M3 Ultra，最高 512GB，约 800 GB/s</td><td>第一台能在一个机箱里放下 DeepSeek-R1 4-bit 的消费级机器</td></tr>
+      <tr><td class="y">2025</td><td class="w">AMD Strix Halo（128GB，约 256 GB/s，约 $2,000）</td><td>便宜的统一内存方案</td></tr>
+      <tr><td class="y">2025-10</td><td class="w">NVIDIA DGX Spark（128GB，273 GB/s，$3,999）</td><td>NVIDIA 进入桌面 AI 机</td></tr>
+      <tr class="key"><td class="y">2025-12</td><td class="w">NVIDIA 获得 Groq 技术授权并吸收其高管<span class="tag key">关键</span></td><td>CNBC 报道约 200 亿美元（NVIDIA 不称为收购）。推理专用架构被证明值钱</td></tr>
+      <tr><td class="y">2026</td><td class="w">社区共识：带宽是真正的瓶颈</td><td>128GB 机器跑得动约 120B 的 MoE，但放不下 2026 旗舰；多机组集群兴起。据报道 M5 Ultra 最高 512GB、约 1.2 TB/s（未核实官方规格）</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="now">
+  <span class="eyebrow">2026 年在往哪走</span>
+  <h2>正在发生的方向</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>方向</th><th>在做什么</th></tr></thead>
+    <tbody>
+      <tr><td class="w">MoE 感知的内存分层</td><td>专家放置、预测、预取、缓存；GPU / CPU DRAM / 闪存三层</td></tr>
+      <tr><td class="w">原生低比特</td><td>FP4 训练和推理、1.58-bit、量化感知训练</td></tr>
+      <tr><td class="w">从结构上消除 KV</td><td>混合线性注意力，长上下文不再吃内存</td></tr>
+      <tr><td class="w">并行解码</td><td>MTP、EAGLE-3、扩散语言模型，用闲置算力换速度</td></tr>
+      <tr><td class="w">新内存硬件<span class="tag inf">只知大方向</span></td><td>大容量 LPDDR、CXL 内存扩展、存内 / 近存计算、高带宽闪存</td></tr>
+      <tr><td class="w">端云协同与专用芯片</td><td>Groq、Cerebras、Etched 一类，以及把模型固化进芯片的思路</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="alpaca">
+  <span class="eyebrow">Alpaca Research · 剑桥</span>
+  <h2>Alpaca 在这张图里的位置</h2>
+  <p class="lede">公开信息只有招聘描述（官网只有一句"not researching llamas"）。右列是我的推断。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>公开信息</th><th>解读<span class="tag inf">推断</span></th></tr></thead>
+    <tbody>
+      <tr><td>推理引擎 + 内存架构，打破把前沿模型锁在数据中心的经济账</td><td>赌的是容量问题：便宜的大容量内存方案，加上为 MoE 专家调度优化的推理引擎，相当于把 KTransformers 这类思路软硬件一体化</td></tr>
+      <tr><td>硬件、软件、模型、应用全栈</td><td>类似 Apple 模式：控制整条链路，才能在内存分层上做激进优化</td></tr>
+      <tr><td>Product ML Engineer：微调、记忆与上下文系统、本地硬件上的量化、投机解码、推理时技巧</td><td>正好对应线 ①、② 和 ③</td></tr>
+      <tr><td>成为美国领先的开放前沿实验室</td><td>先用开源 MoE（DeepSeek、Qwen、Kimi 一类）跑通，以后可能自训针对自家硬件的模型</td></tr>
+      <tr><td>约 10–50 人，与 MIT 有关联</td><td>早期团队，MIT 背景，离 Song Han 的圈子很近</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><h3>为什么是这个时间点</h3><p>2025 年起前沿开源模型几乎都是 MoE：激活少、总量大，瓶颈转到容量。现成的消费级机器在 128–512GB 这一档又贵又不够。</p></div>
+</section>
+
+<section id="sources">
+  <span class="eyebrow">来源</span>
+  <ul class="src">
+    <li><a href="https://capd.mit.edu/jobs/alpaca-research-corp-application-engineer/" target="_blank" rel="noopener">Alpaca Research – Application Engineer（MIT CAPD）</a></li>
+    <li><a href="https://www.crunchbase.com/organization/alpaca-research" target="_blank" rel="noopener">Alpaca Research – Crunchbase</a></li>
+    <li><a href="https://madsys.cs.tsinghua.edu.cn/publication/ktransformers-unleashing-the-full-potential-of-cpu/gpu-hybrid-inference-for-moe-models/SOSP25-chen.pdf" target="_blank" rel="noopener">KTransformers, SOSP 2025</a></li>
+    <li><a href="https://arxiv.org/html/2602.03495v1" target="_blank" rel="noopener">DALI（arXiv 2602.03495）</a> · <a href="https://arxiv.org/abs/2610.01950" target="_blank" rel="noopener">MoE-CORE（arXiv 2610.01950）</a> · <a href="https://intellisys.haow.us/assets/pdf/Hanfei_FineMoE_EuroSys26.pdf" target="_blank" rel="noopener">FineMoE（EuroSys '26）</a></li>
+    <li><a href="https://ieeexplore.ieee.org/abstract/document/11095626" target="_blank" rel="noopener">SSD offloading for MoE considered harmful in energy efficiency（IEEE）</a></li>
+    <li><a href="https://github.com/ismael-joffroy-chandoutis/autonomie-llm-local-2026" target="_blank" rel="noopener">Local LLM hardware guide 2026</a> · <a href="https://www.spheron.network/blog/dgx-spark-vs-mac-studio-for-local-llms-which-desk-side-box-w/" target="_blank" rel="noopener">DGX Spark vs Mac Studio</a> · <a href="https://github.com/visorcraft/strix-halo-llm-perf" target="_blank" rel="noopener">Strix Halo LLM perf</a></li>
+    <li><a href="https://www.fierce-network.com/cloud/heres-why-nvidia-dropping-20b-groqs-ai-tech" target="_blank" rel="noopener">Nvidia–Groq deal（Fierce Network）</a> · <a href="https://www.constellationr.com/insights/news/nvidias-groq-deal-acquisition-acquihire-or-creative-licensing-deal" target="_blank" rel="noopener">Constellation Research</a></li>
+    <li>论文年份和会议来自原始论文；标注"推断"或"未核实"的条目请当作判断而非事实。</li>
+  </ul>
+</section>
+</div>
+
+<script>
+(function(){
+  var P={ds:{bw:819,tot:671,act:37,bits:4},oss:{bw:273,tot:117,act:5.1,bits:4.25},qwen:{bw:256,tot:30.5,act:3.3,bits:4}};
+  var ids=['bw','tot','act','bits'];
+  var el={}; ids.forEach(function(k){el[k]=document.getElementById(k)});
+  function fmt(x,d){return isFinite(x)&&x>0? x.toLocaleString(undefined,{maximumFractionDigits:d}) : '–'}
+  function calc(){
+    var bw=+el.bw.value, tot=+el.tot.value, act=+el.act.value, bits=+el.bits.value;
+    var cap=tot*bits/8, read=act*bits/8, tps=bw/read;
+    document.getElementById('o-cap').textContent=fmt(cap,0);
+    document.getElementById('o-read').textContent=fmt(read,1);
+    document.getElementById('o-tps').textContent=fmt(tps,0);
+  }
+  var btns=document.querySelectorAll('.presets button');
+  function load(key){
+    var p=P[key]; ids.forEach(function(k){el[k].value=p[k]});
+    btns.forEach(function(b){b.setAttribute('aria-pressed', b.dataset.p===key?'true':'false')});
+    calc();
+  }
+  btns.forEach(function(b){b.addEventListener('click',function(){load(b.dataset.p)})});
+  ids.forEach(function(k){el[k].addEventListener('input',function(){btns.forEach(function(b){b.setAttribute('aria-pressed','false')});calc()})});
+  load('ds');
+})();
+</script>
+
+</body></html>
