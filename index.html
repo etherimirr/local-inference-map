@@ -83,6 +83,14 @@ tr.key td{background:var(--copper-soft)}
 ol.qs{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:6px}
 ul.src{margin:0;padding-left:1.2em;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
 ul.src a{color:var(--teal)}
+td .prob,td .how,td .eff{margin:0}
+td .how,td .eff{margin-top:5px}
+td .prob{font-weight:600}
+td .eff{color:var(--muted)}
+td .lab{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;border-radius:4px;padding:0 6px;margin-right:6px;vertical-align:1px;background:var(--teal-soft);color:var(--teal)}
+td .prob .lab{background:var(--warn-soft);color:var(--warn)}
+td .eff .lab{background:var(--copper-soft);color:var(--copper)}
+td.w{max-width:13em}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 </style>
 
@@ -131,18 +139,19 @@ ul.src a{color:var(--teal)}
 <section id="l1">
   <div class="lane-head"><span class="lane-id">线 ①</span><h2>压缩权重：少读字节</h2></div>
   <div class="tbl"><table>
-    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <thead><tr><th>时间</th><th>工作</th><th>解决了什么 · 怎么做 · 效果</th></tr></thead>
     <tbody>
-      <tr><td class="y">2016</td><td class="w">Deep Compression（Han，ICLR 最佳论文）、EIE（ISCA）</td><td>剪枝 + 量化 + 编码，CNN 时代的开山之作</td></tr>
-      <tr><td class="y">2022</td><td class="w">LLM.int8()（Dettmers，NeurIPS）</td><td>发现大模型激活里有离群值，单独用高精度处理，8-bit 不掉点</td></tr>
-      <tr><td class="y">2023</td><td class="w">GPTQ（ICLR）</td><td>训练后一次性量化到 4-bit，用二阶信息逐列补偿误差</td></tr>
-      <tr><td class="y">2023</td><td class="w">SmoothQuant（ICML）</td><td>把激活的离群值转移到权重上，权重和激活都 8-bit</td></tr>
-      <tr class="key"><td class="y">2023–24</td><td class="w">AWQ（MLSys 2024 最佳论文）<span class="tag key">关键</span></td><td>按激活重要性保护约 1% 的关键权重；成为本地 4-bit 部署的标配</td></tr>
-      <tr><td class="y">2023</td><td class="w">QLoRA（NeurIPS）</td><td>4-bit NF4 底座上微调，消费级显卡能微调大模型</td></tr>
-      <tr><td class="y">2023–24</td><td class="w">QuIP / QuIP#、AQLM（ICML 2024）</td><td>随机旋转消除离群值 + 向量码本，推到 2-bit</td></tr>
-      <tr><td class="y">2024–25</td><td class="w">BitNet b1.58 → b1.58 2B4T</td><td>三值权重 {-1, 0, 1}，从训练开始就低比特，乘法变加法</td></tr>
-      <tr><td class="y">2025</td><td class="w">MXFP4 / NVFP4；gpt-oss 以 MXFP4 发布</td><td>4-bit 浮点进了硬件和官方模型</td></tr>
-      <tr><td class="y">2026</td><td class="w">MoE 专家级压缩（如 RFID-MoE，ICML 2026）</td><td>按专家重要性分配不同压缩率</td></tr>
+      <tr class="key"><td class="y">2016</td><td class="w">Deep Compression（Han 等，ICLR 最佳论文）<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>CNN 几百 MB，放不进片上内存，读外存最耗电</p><p class="how"><span class="lab">做法</span><b>剪枝</b>：把绝对值小的权重置零、重训补精度，剩下的存稀疏格式。<b>量化</b>：每层用 k-means 把权重聚成 32–256 簇，只存簇编号，簇中心再微调。<b>霍夫曼编码</b>：编号分布不均匀，再压一层。</p><p class="eff"><span class="lab">效果</span>AlexNet 缩小 35 倍、VGG 49 倍，精度不降。</p></td></tr>
+      <tr><td class="y">2016</td><td class="w">EIE（Han 等，ISCA）</td><td><p class="prob"><span class="lab">问题</span>压缩后的稀疏模型在通用硬件上跑不快</p><p class="how"><span class="lab">做法</span>专用芯片直接在压缩格式上算：跳过零权重和零激活，查表解码簇编号。</p><p class="eff"><span class="lab">效果</span>比 GPU 快约 13 倍、能效高三个数量级。</p></td></tr>
+      <tr><td class="y">2022</td><td class="w">LLM.int8()（Dettmers，NeurIPS）</td><td><p class="prob"><span class="lab">问题</span>大模型（6.7B 以上）直接 8-bit 量化会崩</p><p class="how"><span class="lab">做法</span>原因是约 0.1% 的隐藏维度有极大的离群激活。把这几列单独用 FP16 算，其余用 INT8 算，再相加。</p><p class="eff"><span class="lab">效果</span>175B 模型显存减半、零精度损失。</p></td></tr>
+      <tr><td class="y">2023</td><td class="w">GPTQ（Alistarh 组，ICLR）</td><td><p class="prob"><span class="lab">问题</span>4-bit 以下量化掉点太多，逐权重优化又太慢</p><p class="how"><span class="lab">做法</span>逐层用校准数据算二阶信息，按列量化，每量化一列就把误差分摊到后面的列上补偿。</p><p class="eff"><span class="lab">效果</span>175B 在一张 A100 上 4 小时压到 3–4 bit，困惑度几乎不变。</p></td></tr>
+      <tr><td class="y">2023</td><td class="w">SmoothQuant（Song Han 组，ICML）</td><td><p class="prob"><span class="lab">问题</span>权重好量化，激活因为离群通道量化不了，W8A8 做不到</p><p class="how"><span class="lab">做法</span>数学等价变换：激活按通道除以 s，权重乘以 s，把一半的量化难度从激活挪到权重。离线做，推理无开销。</p><p class="eff"><span class="lab">效果</span>530B 模型 W8A8，精度不降，约 1.5 倍加速、显存减半。</p></td></tr>
+      <tr class="key"><td class="y">2023–24</td><td class="w">AWQ（Song Han 组，MLSys 2024 最佳论文）<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>4-bit 权重量化要在精度和易加速之间二选一</p><p class="how"><span class="lab">做法</span>只有约 1% 的权重通道重要，重要性看激活幅度。给这些通道乘个缩放再量化，误差变小，全部仍是 INT4。不用反向传播。</p><p class="eff"><span class="lab">效果</span>4-bit 精度接近原模型；成为 vLLM、TensorRT-LLM 的标准方案。</p></td></tr>
+      <tr><td class="y">2023</td><td class="w">QLoRA（Dettmers，NeurIPS）</td><td><p class="prob"><span class="lab">问题</span>微调大模型需要几百 GB 显存</p><p class="how"><span class="lab">做法</span>底座用 4-bit NF4（按正态分布分位数取量化点）冻结，只训旁边的 LoRA；量化常数再量化一次；优化器状态可换页到 CPU。</p><p class="eff"><span class="lab">效果</span>一张 48GB 卡微调 65B，效果接近 ChatGPT。</p></td></tr>
+      <tr><td class="y">2023–24</td><td class="w">QuIP#、AQLM（ICML 2024）</td><td><p class="prob"><span class="lab">问题</span>2-bit 时离群值让量化完全失效</p><p class="how"><span class="lab">做法</span>QuIP#：先做随机旋转把离群值摊平，再 8 个权重一起用格点码本编码。AQLM：每组权重表示成几个码本向量之和。</p><p class="eff"><span class="lab">效果</span>2-bit 大模型第一次基本可用。</p></td></tr>
+      <tr><td class="y">2024–25</td><td class="w">BitNet b1.58（2024-02）→ 2B4T（2025）</td><td><p class="prob"><span class="lab">问题</span>事后量化总有损失，能不能一开始就低比特训练</p><p class="how"><span class="lab">做法</span>训练时权重就限制在 {-1, 0, 1}，用直通估计传梯度；矩阵乘变成加减法。</p><p class="eff"><span class="lab">效果</span>3B 起和 FP16 持平，能耗大降；2B4T 是 4 万亿 token 训的开源版。</p></td></tr>
+      <tr><td class="y">2025</td><td class="w">MXFP4 / NVFP4；gpt-oss 用 MXFP4 发布</td><td><p class="prob"><span class="lab">问题</span>4-bit 一直是软件技巧，硬件不原生支持</p><p class="how"><span class="lab">做法</span>每 32（MX）或 16（NV）个元素共享一个缩放，元素是 4-bit 浮点，Tensor Core 直接算。</p><p class="eff"><span class="lab">效果</span>gpt-oss-120b 约 63GB 放进一张 80GB 卡。</p></td></tr>
+      <tr><td class="y">2026</td><td class="w">RFID-MoE 等（ICML 2026）</td><td><p class="prob"><span class="lab">问题</span>MoE 压缩时所有专家一视同仁，浪费预算</p><p class="how"><span class="lab">做法</span>按"路由频率 × 有效秩"给专家分配不同的秩，残差用稀疏投影补回。</p><p class="eff"><span class="lab">效果</span>Qwen3-30B 压 60%，困惑度比基线低 8 以上。</p></td></tr>
     </tbody>
   </table></div>
   <p class="trend"><b>走向：</b>事后量化 → 量化感知训练、原生低比特训练 → 硬件原生支持 4-bit 浮点</p>
@@ -151,17 +160,18 @@ ul.src a{color:var(--teal)}
 <section id="l2">
   <div class="lane-head"><span class="lane-id">线 ②</span><h2>KV cache 与注意力：长上下文的内存大头</h2></div>
   <div class="tbl"><table>
-    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <thead><tr><th>时间</th><th>工作</th><th>解决了什么 · 怎么做 · 效果</th></tr></thead>
     <tbody>
-      <tr><td class="y">2019</td><td class="w">MQA（Shazeer）</td><td>所有注意力头共享一份 K/V，KV cache 缩小几十倍</td></tr>
-      <tr class="key"><td class="y">2022</td><td class="w">FlashAttention（Dao，NeurIPS）<span class="tag key">关键</span></td><td>IO 感知：分块在片上 SRAM 里算，不把注意力矩阵写回显存</td></tr>
-      <tr><td class="y">2022</td><td class="w">Orca（OSDI）</td><td>连续批处理</td></tr>
-      <tr class="key"><td class="y">2023</td><td class="w">vLLM / PagedAttention（SOSP）<span class="tag key">关键</span></td><td>像操作系统分页一样管理 KV cache，几乎没有碎片</td></tr>
-      <tr><td class="y">2023</td><td class="w">GQA（EMNLP）</td><td>MQA 和多头之间的折中，Llama 2/3 采用</td></tr>
-      <tr><td class="y">2023–24</td><td class="w">H2O（NeurIPS 2023）、StreamingLLM（ICLR 2024）</td><td>只留重要的 token；"注意力汇点"让流式无限长生成成为可能</td></tr>
-      <tr><td class="y">2024</td><td class="w">KIVI（ICML）、KVQuant（NeurIPS）</td><td>KV cache 量化到 2–4 bit</td></tr>
-      <tr><td class="y">2024</td><td class="w">MLA（DeepSeek-V2）</td><td>把 K/V 压成低秩潜向量，KV 大幅缩小</td></tr>
-      <tr><td class="y">2024–25</td><td class="w">混合注意力：Jamba、MiniMax-01、Qwen3-Next、Kimi Linear</td><td>大部分层换成线性注意力或状态空间，KV 几乎不随长度增长</td></tr>
+      <tr><td class="y">2019</td><td class="w">MQA（Shazeer）</td><td><p class="prob"><span class="lab">问题</span>每个头各存一份 K/V，解码时读 KV cache 太慢</p><p class="how"><span class="lab">做法</span>所有 query 头共享同一个 K 头和 V 头。</p><p class="eff"><span class="lab">效果</span>KV cache 缩小到 1/头数；质量略降。</p></td></tr>
+      <tr class="key"><td class="y">2022</td><td class="w">FlashAttention（Dao，NeurIPS）<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>注意力要把 N×N 矩阵写回显存再读，长序列显存和时间都爆</p><p class="how"><span class="lab">做法</span>把 Q、K、V 切块放进片上 SRAM，用在线 softmax 一次算完，从不写回 N×N 矩阵；反向传播重算。结果精确，不是近似。</p><p class="eff"><span class="lab">效果</span>显存从 O(N²) 降到 O(N)，训练约 3 倍快；FA-2、FA-3 继续提速。</p></td></tr>
+      <tr><td class="y">2022</td><td class="w">Orca（OSDI）</td><td><p class="prob"><span class="lab">问题</span>一批请求要等最长的那个生成完，GPU 大量空转</p><p class="how"><span class="lab">做法</span>每生成一步就重组一次批：结束的请求立刻走，新请求立刻进。</p><p class="eff"><span class="lab">效果</span>吞吐大幅提升，连续批处理成为标配。</p></td></tr>
+      <tr class="key"><td class="y">2023</td><td class="w">vLLM / PagedAttention（SOSP）<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>KV cache 要按最大长度预留连续显存，60–80% 浪费掉</p><p class="how"><span class="lab">做法</span>像操作系统分页一样把 KV 切成固定小块，用块表映射，不需要连续；共享前缀写时复制。</p><p class="eff"><span class="lab">效果</span>浪费降到 4% 以下，吞吐比 HF 高 14–24 倍。</p></td></tr>
+      <tr><td class="y">2023</td><td class="w">GQA（EMNLP）</td><td><p class="prob"><span class="lab">问题</span>MQA 省内存但掉质量</p><p class="how"><span class="lab">做法</span>query 头分组，每组共享一对 K/V；已有模型可用 5% 算力升级成 GQA。</p><p class="eff"><span class="lab">效果</span>质量接近多头、速度接近 MQA；Llama 2/3 采用。</p></td></tr>
+      <tr><td class="y">2023</td><td class="w">H2O（NeurIPS）</td><td><p class="prob"><span class="lab">问题</span>长对话 KV cache 无限增长</p><p class="how"><span class="lab">做法</span>累计注意力集中在少数 token 上；只保留最近的加累计注意力最高的，其余逐出。</p><p class="eff"><span class="lab">效果</span>留 20% KV 质量几乎不变。</p></td></tr>
+      <tr><td class="y">2023 → ICLR 2024</td><td class="w">StreamingLLM（Song Han 组）</td><td><p class="prob"><span class="lab">问题</span>滑动窗口一丢掉开头的 token，模型就崩</p><p class="how"><span class="lab">做法</span>发现"注意力汇点"：开头几个 token 不管内容都吸收大量注意力。永远保留前 4 个 token 的 KV，再加滑动窗口。</p><p class="eff"><span class="lab">效果</span>不微调就能稳定生成 400 万 token。</p></td></tr>
+      <tr><td class="y">2024</td><td class="w">KIVI（ICML）、KVQuant（NeurIPS）</td><td><p class="prob"><span class="lab">问题</span>KV cache 本身能不能像权重一样量化</p><p class="how"><span class="lab">做法</span>KIVI：Key 按通道、Value 按 token 量化到 2-bit。KVQuant：Key 在加位置编码前量化，离群值单独存。</p><p class="eff"><span class="lab">效果</span>KV 显存减 2.6 倍；7B 模型单卡支持约 100 万 token。</p></td></tr>
+      <tr><td class="y">2024-05</td><td class="w">MLA（DeepSeek-V2）</td><td><p class="prob"><span class="lab">问题</span>GQA 还是存了很多 K/V</p><p class="how"><span class="lab">做法</span>把 K 和 V 联合压成一个低维潜向量（如 512 维）存，用时再投影回去；投影矩阵可合并进 query 侧。</p><p class="eff"><span class="lab">效果</span>KV cache 减少约 93%，效果略好。</p></td></tr>
+      <tr><td class="y">2024–25</td><td class="w">混合注意力：Jamba、MiniMax-01、Qwen3-Next、Kimi Linear</td><td><p class="prob"><span class="lab">问题</span>只要有标准注意力，KV 就随长度线性增长</p><p class="how"><span class="lab">做法</span>大部分层换成线性注意力或状态空间（KV 固定大小），只留 1/4 到 1/8 的标准注意力层。</p><p class="eff"><span class="lab">效果</span>Kimi Linear KV 减 75%，百万上下文解码约 6 倍快。</p></td></tr>
     </tbody>
   </table></div>
   <p class="trend"><b>走向：</b>先省带宽（FlashAttention）→ 再省容量（分页、量化、低秩）→ 从模型结构上去掉 KV cache</p>
@@ -170,12 +180,13 @@ ul.src a{color:var(--teal)}
 <section id="l3">
   <div class="lane-head"><span class="lane-id">线 ③</span><h2>并行解码：读一次权重，多出几个 token</h2></div>
   <div class="tbl"><table>
-    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <thead><tr><th>时间</th><th>工作</th><th>解决了什么 · 怎么做 · 效果</th></tr></thead>
     <tbody>
-      <tr class="key"><td class="y">2022–23</td><td class="w">投机解码（Leviathan 等 ICML 2023；DeepMind 2023）<span class="tag key">关键</span></td><td>小模型先猜几个 token，大模型一次并行验证；结果和原模型完全一致</td></tr>
-      <tr><td class="y">2024</td><td class="w">Medusa（ICML）、EAGLE（ICML）/ EAGLE-2</td><td>不要独立小模型，在大模型上加预测头；在特征层预测</td></tr>
-      <tr><td class="y">2024–25</td><td class="w">MTP（DeepSeek-V3）、EAGLE-3</td><td>训练时就让模型预测后面几个 token</td></tr>
-      <tr><td class="y">2025</td><td class="w">扩散语言模型：LLaDA、Mercury、Gemini Diffusion</td><td>并行去噪出整段，不再逐个生成</td></tr>
+      <tr class="key"><td class="y">2022–23</td><td class="w">投机解码（Leviathan 等 ICML 2023；DeepMind 同期）<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>解码每步只出 1 个 token，权重读一次只换来一个 token，算力闲着</p><p class="how"><span class="lab">做法</span>小模型先猜 γ 个 token，大模型一次前向并行验证；按 min(1, p/q) 接受，拒绝时从修正分布重采样。可证明输出分布和大模型完全一样。</p><p class="eff"><span class="lab">效果</span>2–3 倍加速，零质量损失。</p></td></tr>
+      <tr><td class="y">2024</td><td class="w">Medusa（ICML）</td><td><p class="prob"><span class="lab">问题</span>找一个合适的草稿小模型很麻烦</p><p class="how"><span class="lab">做法</span>不要草稿模型，在大模型最后一层加几个预测头，第 k 个头预测后面第 k+1 个 token，候选组成树一次验证。</p><p class="eff"><span class="lab">效果</span>2.2–3.6 倍加速。</p></td></tr>
+      <tr><td class="y">2024–25</td><td class="w">EAGLE → EAGLE-2 → EAGLE-3</td><td><p class="prob"><span class="lab">问题</span>直接猜 token 不确定性太大，接受率低</p><p class="how"><span class="lab">做法</span>在特征层（倒数第二层隐藏状态）上预测，并把已采样的 token 喂回去消除不确定性。EAGLE-2 按置信度动态调草稿树；EAGLE-3 融合多层特征。</p><p class="eff"><span class="lab">效果</span>EAGLE 约 3 倍，EAGLE-3 最高约 6.5 倍。</p></td></tr>
+      <tr><td class="y">2024-12</td><td class="w">MTP（DeepSeek-V3）</td><td><p class="prob"><span class="lab">问题</span>草稿头是事后加的，和主模型不够配合</p><p class="how"><span class="lab">做法</span>训练时就加一个预测再下一个 token 的模块；推理时直接当草稿用。</p><p class="eff"><span class="lab">效果</span>第二个 token 接受率 85–90%，约 1.8 倍快。</p></td></tr>
+      <tr><td class="y">2025</td><td class="w">扩散语言模型：LLaDA、Mercury、Gemini Diffusion</td><td><p class="prob"><span class="lab">问题</span>自回归天生是串行的</p><p class="how"><span class="lab">做法</span>从全掩码序列出发，每步并行预测多个位置，几步揭开整段。</p><p class="eff"><span class="lab">效果</span>LLaDA 8B 和 LLaMA3 8B 相当；Mercury 超过 1000 token/s。</p></td></tr>
     </tbody>
   </table></div>
   <p class="trend"><b>为什么对本地特别重要：</b>本地是单用户、小批量，算力大量闲置。投机解码把闲置的算力换成速度</p>
@@ -184,15 +195,15 @@ ul.src a{color:var(--teal)}
 <section id="l4">
   <div class="lane-head"><span class="lane-id">线 ④</span><h2>分层存放、按需搬运：容量不够怎么办</h2></div>
   <div class="tbl"><table>
-    <thead><tr><th>时间</th><th>工作</th><th>改进了什么</th></tr></thead>
+    <thead><tr><th>时间</th><th>工作</th><th>解决了什么 · 怎么做 · 效果</th></tr></thead>
     <tbody>
-      <tr><td class="y">2023</td><td class="w">FlexGen（ICML）</td><td>权重和 KV 分到 GPU / CPU / 磁盘，用调度换吞吐</td></tr>
-      <tr><td class="y">2023</td><td class="w">Deja Vu（ICML）</td><td>上下文稀疏性：每个输入只用到一小部分神经元，可预测并跳过</td></tr>
-      <tr class="key"><td class="y">2023-12</td><td class="w">LLM in a flash（Apple，ACL 2024）<span class="tag key">关键</span></td><td>权重放闪存，只把需要的部分读进 DRAM；窗口化复用、按行列打包读取</td></tr>
-      <tr><td class="y">2023-12</td><td class="w">PowerInfer（SOSP 2024）、PowerInfer-2（2024）</td><td>热神经元放 GPU、冷神经元放 CPU；后来搬到手机</td></tr>
-      <tr><td class="y">2023–24</td><td class="w">MoE 专家卸载（如 Mixtral 卸载）</td><td>只把要用的专家搬进显存</td></tr>
-      <tr class="key"><td class="y">2025</td><td class="w">KTransformers（清华，SOSP 2025）<span class="tag key">关键</span></td><td>注意力、KV、共享专家放 GPU，路由专家放 CPU 内存；单张 16GB 消费级卡加大内存跑 671B DeepSeek，提速 1.66–19.7 倍</td></tr>
-      <tr><td class="y">2026</td><td class="w">DALI、FlashMoE、MoE-CORE、FineMoE（EuroSys '26）</td><td>专家缓存与预取策略（如证明 LRU/LFU 不适合专家路由）、SSD 直读专家、手机 NPU + 闪存</td></tr>
+      <tr><td class="y">2023</td><td class="w">FlexGen（ICML）</td><td><p class="prob"><span class="lab">问题</span>一张小显卡想跑 175B，权重根本放不下</p><p class="how"><span class="lab">做法</span>把权重、激活、KV 分到 GPU、CPU、磁盘，用线性规划选方案；按之字形调度让一次加载服务多个批次。</p><p class="eff"><span class="lab">效果</span>一张 T4 跑 OPT-175B，约 1 token/s，适合离线批处理。</p></td></tr>
+      <tr><td class="y">2023</td><td class="w">Deja Vu（ICML）</td><td><p class="prob"><span class="lab">问题</span>每个 token 其实只用到一小部分神经元，却全算了</p><p class="how"><span class="lab">做法</span>用小预测器提前一层预测哪些注意力头和 MLP 神经元会激活，只算这些。</p><p class="eff"><span class="lab">效果</span>OPT-175B 延迟降 2 倍以上，质量不降。</p></td></tr>
+      <tr class="key"><td class="y">2023-12 → ACL 2024</td><td class="w">LLM in a flash（Apple）<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>DRAM 只能装下模型的一半，闪存随机读很慢</p><p class="how"><span class="lab">做法</span>只加载会激活的神经元；保留最近几个 token 用过的，新 token 只读增量；把要一起用的行和列打包存，变成连续读。</p><p class="eff"><span class="lab">效果</span>跑 DRAM 两倍大的模型，GPU 上比朴素加载快 20 倍以上。</p></td></tr>
+      <tr><td class="y">2023-12 → SOSP 2024</td><td class="w">PowerInfer（上交）→ PowerInfer-2（2024）</td><td><p class="prob"><span class="lab">问题</span>消费级显卡显存小，CPU 内存大但算得慢</p><p class="how"><span class="lab">做法</span>神经元激活服从幂律：少数热神经元放 GPU，大量冷神经元放 CPU 直接算；在线预测器决定每个 token 用哪些。PowerInfer-2 搬到手机 NPU + 闪存。</p><p class="eff"><span class="lab">效果</span>RTX 4090 跑 OPT-175B 约 13 token/s；手机跑 47B Mixtral。</p></td></tr>
+      <tr><td class="y">2023-12</td><td class="w">Mixtral 卸载（Eliseev & Mazur）</td><td><p class="prob"><span class="lab">问题</span>MoE 总参数大但每次只用几个专家，显存放不下全部</p><p class="how"><span class="lab">做法</span>专家在 GPU 上用 LRU 缓存，相邻 token 常复用；用下一层门控提前预取；专家量化到 2–3 bit。</p><p class="eff"><span class="lab">效果</span>T4 显卡上以交互速度跑 Mixtral-8x7B。</p></td></tr>
+      <tr class="key"><td class="y">2025</td><td class="w">KTransformers（清华，SOSP）<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>671B 的 DeepSeek 在消费级机器上根本跑不起来</p><p class="how"><span class="lab">做法</span>按结构切：注意力、KV、共享专家放 GPU；路由专家放 CPU 内存用 AMX 指令算；CPU/GPU 异步；Expert Deferral 把部分专家结果推迟一层合并，让两边重叠。</p><p class="eff"><span class="lab">效果</span>一张 16GB 卡 + 大内存跑 671B，提速 1.66–19.7 倍。</p></td></tr>
+      <tr><td class="y">2026</td><td class="w">DALI、FlashMoE、MoE-CORE、FineMoE 等</td><td><p class="prob"><span class="lab">问题</span>专家放哪、怎么预取、怎么缓存，没有专门的策略</p><p class="how"><span class="lab">做法</span>按工作负载放置专家；证明 LRU/LFU 不适合专家路由，设计专门的缓存；协调常驻和传输；从闪存直读。</p><p class="eff"><span class="lab">效果</span>2026 最热方向。反面证据：SSD 卸载每 token 能耗可达 HBM 的 12 倍。</p></td></tr>
     </tbody>
   </table></div>
   <p class="trend"><b>走向：</b>通用卸载 → 利用稀疏性 → 针对 MoE 的专家放置、缓存和预取（2026 年最热）。反面证据：用 SSD 卸载 MoE 权重，每 token 能耗可达 HBM 的约 12 倍</p>
@@ -201,12 +212,12 @@ ul.src a{color:var(--teal)}
 <section id="l5">
   <div class="lane-head"><span class="lane-id">线 ⑤</span><h2>模型结构变得对本地友好</h2></div>
   <div class="tbl"><table>
-    <thead><tr><th>时间</th><th>变化</th><th>意义</th></tr></thead>
+    <thead><tr><th>时间</th><th>工作</th><th>解决了什么 · 怎么做 · 效果</th></tr></thead>
     <tbody>
-      <tr><td class="y">2023-12</td><td class="w">Mixtral 8x7B</td><td>开源 MoE 走进大众</td></tr>
-      <tr class="key"><td class="y">2024-12 / 2025-01</td><td class="w">DeepSeek-V3 / R1<span class="tag key">关键</span></td><td>671B 总参数、激活 37B；MLA + MTP + FP8 训练。开源模型第一次接近前沿</td></tr>
-      <tr><td class="y">2025</td><td class="w">Qwen3、Kimi K2（1T）、gpt-oss（MXFP4）</td><td>前沿开源模型几乎全是 MoE；gpt-oss-120b 单张 80GB 卡可跑</td></tr>
-      <tr><td class="y">2025–26</td><td class="w">Qwen3-Next、Kimi Linear；DeepSeek-V4、Qwen3.5</td><td>激活参数越来越少，KV 越来越小</td></tr>
+      <tr><td class="y">2023-12</td><td class="w">Mixtral 8x7B</td><td><p class="prob"><span class="lab">问题</span>想要 70B 的质量，又只想付 13B 的推理成本</p><p class="how"><span class="lab">做法</span>每层 8 个专家，每 token 路由到 2 个；总参数 47B，激活 13B。</p><p class="eff"><span class="lab">效果</span>开源 MoE 走进大众。</p></td></tr>
+      <tr class="key"><td class="y">2024-12 / 2025-01</td><td class="w">DeepSeek-V3 / R1<span class="tag key">关键</span></td><td><p class="prob"><span class="lab">问题</span>开源模型和前沿闭源模型差距大，训练又太贵</p><p class="how"><span class="lab">做法</span>671B 总 / 37B 激活：256 个细粒度专家 + 1 个共享专家，每 token 选 8 个；无辅助损失的负载均衡；MLA；MTP；FP8 训练。R1 用强化学习加推理。</p><p class="eff"><span class="lab">效果</span>开源第一次接近前沿；但 4-bit 也要约 340GB，在家跑变成容量问题。</p></td></tr>
+      <tr><td class="y">2025</td><td class="w">Qwen3、Kimi K2（1T）、gpt-oss</td><td><p class="prob"><span class="lab">问题</span>前沿模型还能不能更稀疏</p><p class="how"><span class="lab">做法</span>Qwen3 235B/22B 激活和 30B/3B 激活；Kimi K2 1T/32B；gpt-oss 120B/5.1B，直接 MXFP4 发布。</p><p class="eff"><span class="lab">效果</span>总参数越来越大，激活停在几 B 到几十 B。</p></td></tr>
+      <tr><td class="y">2025–26</td><td class="w">Qwen3-Next、Kimi Linear；DeepSeek-V4、Qwen3.5</td><td><p class="prob"><span class="lab">问题</span>MoE 解决了带宽，KV 和容量还在涨</p><p class="how"><span class="lab">做法</span>混合线性注意力 + 超稀疏 MoE（如 80B 总 / 3B 激活）。</p><p class="eff"><span class="lab">效果</span>带宽压力继续降，容量压力继续升。</p></td></tr>
     </tbody>
   </table></div>
   <p class="trend"><b>结论：</b>MoE 让瓶颈从带宽转到容量，这是 Alpaca 这类公司成立的时间背景</p>
